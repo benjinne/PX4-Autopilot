@@ -38,3 +38,5 @@ bool arming_force_failsafe
 bool arming_termination_failsafe
 
 uint16[8] servos
+
+uint16[8] pwm_rate
