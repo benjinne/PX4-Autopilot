@@ -315,11 +315,12 @@ void MulticopterPositionControl::Run()
 
 		PositionControlStates states{set_vehicle_states(local_pos)};
 
-		if (_vehicle_control_mode.flag_multicopter_position_control_enabled) {
+		if (_vehicle_control_mode.flag_control_offboard_enabled) {
 
-			bool is_trajectory_setpoint_updated = _vehicle_control_mode.flag_control_offboard_enabled ?
-							      _offboard_trajectory_setpoint_sub.update(&_setpoint) :
-							      _trajectory_setpoint_sub.update(&_setpoint);
+			bool is_trajectory_setpoint_updated = false;
+			// _vehicle_control_mode.flag_control_offboard_enabled ?
+			// 				      _offboard_trajectory_setpoint_sub.update(&_setpoint) :
+			// 				      _trajectory_setpoint_sub.update(&_setpoint);
 
 			// adjust existing (or older) setpoint with any EKF reset deltas
 			if (_setpoint.timestamp < local_pos.timestamp) {
@@ -523,48 +524,57 @@ void MulticopterPositionControl::failsafe(const hrt_abstime &now, vehicle_local_
 		warn = false;
 	}
 
-	// Only react after a short delay
-	_failsafe_land_hysteresis.set_state_and_update(true, now);
-
-	if (_failsafe_land_hysteresis.get_state()) {
-		reset_setpoint_to_nan(setpoint);
-
-		if (PX4_ISFINITE(states.velocity(0)) && PX4_ISFINITE(states.velocity(1))) {
-			// don't move along xy
-			setpoint.vx = setpoint.vy = 0.f;
-
-			if (warn) {
-				PX4_WARN("Failsafe: stop and wait");
-			}
-
-		} else {
-			// descend with land speed since we can't stop
-			setpoint.acceleration[0] = setpoint.acceleration[1] = 0.f;
-			setpoint.vz = _param_mpc_land_speed.get();
-
-			if (warn) {
-				PX4_WARN("Failsafe: blind land");
-			}
-		}
-
-		if (PX4_ISFINITE(states.velocity(2))) {
-			// don't move along z if we can stop in all dimensions
-			if (!PX4_ISFINITE(setpoint.vz)) {
-				setpoint.vz = 0.f;
-			}
-
-		} else {
-			// emergency descend with a bit below hover thrust
-			setpoint.vz = NAN;
-			setpoint.acceleration[2] = .3f;
-
-			if (warn) {
-				PX4_WARN("Failsafe: blind descend");
-			}
-		}
-
-		_in_failsafe = true;
+	// Only react after a long delay
+	if (_delayed == false) {
+		_time_delay = now + 3_s;
+		_delayed = true;
 	}
+
+	if (now > _time_delay) {
+		_failsafe_land_hysteresis.set_state_and_update(true, now);
+
+		if (_failsafe_land_hysteresis.get_state()) {
+			reset_setpoint_to_nan(setpoint);
+
+			if (PX4_ISFINITE(states.velocity(0)) && PX4_ISFINITE(states.velocity(1))) {
+				// don't move along xy
+				setpoint.vx = setpoint.vy = 0.f;
+
+				if (warn) {
+					PX4_WARN("Failsafe: stop and wait");
+				}
+
+			} else {
+				// descend with land speed since we can't stop
+				setpoint.acceleration[0] = setpoint.acceleration[1] = 0.f;
+				setpoint.vz = _param_mpc_land_speed.get();
+
+				if (warn) {
+					PX4_WARN("Failsafe: blind land");
+				}
+			}
+
+			if (PX4_ISFINITE(states.velocity(2))) {
+				// don't move along z if we can stop in all dimensions
+				if (!PX4_ISFINITE(setpoint.vz)) {
+					setpoint.vz = 0.f;
+				}
+
+			} else {
+				// emergency descend with a bit below hover thrust
+				setpoint.vz = NAN;
+				setpoint.acceleration[2] = .3f;
+
+				if (warn) {
+					PX4_WARN("Failsafe: blind descend");
+				}
+			}
+
+			_in_failsafe = true;
+		}
+	}
+
+
 }
 
 void MulticopterPositionControl::reset_setpoint_to_nan(vehicle_local_position_setpoint_s &setpoint)

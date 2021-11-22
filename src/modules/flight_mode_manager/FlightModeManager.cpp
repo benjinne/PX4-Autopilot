@@ -480,7 +480,7 @@ void FlightModeManager::generateTrajectorySetpoint(const float dt,
 
 
 	setpoint.timestamp = hrt_absolute_time();
-	_trajectory_setpoint_pub.publish(setpoint);
+	// _trajectory_setpoint_pub.publish(setpoint);
 
 	constraints.timestamp = hrt_absolute_time();
 	_vehicle_constraints_pub.publish(constraints);

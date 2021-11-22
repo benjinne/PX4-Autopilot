@@ -210,6 +210,9 @@ private:
 	uint8_t _z_reset_counter{0};
 	uint8_t _heading_reset_counter{0};
 
+	bool _delayed{false};
+	hrt_abstime _time_delay{0};
+
 	perf_counter_t _cycle_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle time")};
 
 	/**
